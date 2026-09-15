@@ -6,5 +6,5 @@ window.APP_CONFIG = {
   SHEET_NAME: "อัพเดตลูกค้า",
   SHEET_GID: "91690945",
   DATA_START_ROW: 6,
-  ALLOWED_EMAILS: [nextboxct02@gmail.com],
+  ALLOWED_EMAILS: ["nextboxct02@gmail.com"],
 };
