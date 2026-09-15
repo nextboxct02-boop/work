@@ -218,8 +218,7 @@ function normalizeSheetTitle(value) {
 
 
 async function resolveSheetTitle() {
-  const expectedName = CONFIG.SHEET_NAME || "อัพเดตลูกค้า";
-  const expected = normalizeSheetTitle(expectedName);
+  const wantedGid = Number(CONFIG.SHEET_GID);
 
   const meta = await sheetsFetch(
     `?fields=sheets(properties(sheetId,title,index,hidden))`
@@ -231,47 +230,32 @@ async function resolveSheetTitle() {
     "แท็บทั้งหมด:",
     allSheets.map(s => ({
       title: s.properties?.title,
-      gid: s.properties?.sheetId,
-      index: s.properties?.index,
-      hidden: s.properties?.hidden
+      gid: s.properties?.sheetId
     }))
   );
 
-  // 1. หาแบบชื่อตรงก่อน
-  let matchedSheet = allSheets.find(s =>
-    normalizeSheetTitle(s.properties?.title) === expected
+  // หาแท็บจาก gid ที่อยู่ใน URL ของ Google Sheet
+  const matchedSheet = allSheets.find(
+    s => Number(s.properties?.sheetId) === wantedGid
   );
 
-  // 2. ถ้าไม่ตรง 100% ให้หาแท็บที่มีคำว่า อัพเดตลูกค้า
   if (!matchedSheet) {
-    matchedSheet = allSheets.find(s =>
-      normalizeSheetTitle(s.properties?.title).includes(expected)
-    );
-  }
-
-  if (!matchedSheet) {
-    const foundNames = allSheets
-      .map(s => `"${s.properties?.title}"`)
-      .join(", ");
+    const found = allSheets
+      .map(s => `${s.properties?.title} = ${s.properties?.sheetId}`)
+      .join(" | ");
 
     throw new Error(
-      `ไม่พบแท็บ "${expectedName}" — แท็บที่พบในไฟล์คือ: ${foundNames}`
+      `ไม่พบ gid=${wantedGid} — พบแท็บ: ${found}`
     );
   }
 
-  // ใช้ชื่อจริงที่ Google ส่งกลับมา
   SHEET = matchedSheet.properties.title;
 
-  // อัปเดต gid ให้ตรงกับแท็บที่หาเจอด้วย
-  CONFIG.SHEET_GID = String(matchedSheet.properties.sheetId);
-
-  console.log("เลือกแท็บถูกต้องแล้ว");
-  console.log("ชื่อแท็บ:", SHEET);
-  console.log("gid:", CONFIG.SHEET_GID);
+  console.log("เลือกแท็บ:", SHEET);
+  console.log("gid:", wantedGid);
 
   return SHEET;
 }
-
 
 // โหลดข้อมูลจากชีต
 async function fetchMatrix() {
