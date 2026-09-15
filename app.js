@@ -204,27 +204,70 @@
 
 // หา "ชื่อแท็บจริง" จาก gid
 // เพื่อไม่ต้องพึ่งชื่อ อัพเดตลูกค้า ใน config.js
+function normalizeSheetTitle(value) {
+  return String(value || "")
+    // ลบอักขระซ่อนที่อาจติดมากับชื่อแท็บ
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    // เปลี่ยน non-breaking space เป็น space ปกติ
+    .replace(/\u00A0/g, " ")
+    // รวมช่องว่างหลายตัว
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+
 async function resolveSheetTitle() {
-  const gid = Number(CONFIG.SHEET_GID);
+  const expectedName = CONFIG.SHEET_NAME || "อัพเดตลูกค้า";
+  const expected = normalizeSheetTitle(expectedName);
 
   const meta = await sheetsFetch(
-    `?fields=sheets(properties(sheetId,title))`
+    `?fields=sheets(properties(sheetId,title,index,hidden))`
   );
 
-  const matchedSheet = (meta.sheets || []).find(
-    s => Number(s.properties?.sheetId) === gid
+  const allSheets = meta.sheets || [];
+
+  console.log(
+    "แท็บทั้งหมด:",
+    allSheets.map(s => ({
+      title: s.properties?.title,
+      gid: s.properties?.sheetId,
+      index: s.properties?.index,
+      hidden: s.properties?.hidden
+    }))
   );
 
+  // 1. หาแบบชื่อตรงก่อน
+  let matchedSheet = allSheets.find(s =>
+    normalizeSheetTitle(s.properties?.title) === expected
+  );
+
+  // 2. ถ้าไม่ตรง 100% ให้หาแท็บที่มีคำว่า อัพเดตลูกค้า
   if (!matchedSheet) {
-    throw new Error(
-      `ไม่พบแท็บ Google Sheet ที่มี gid=${CONFIG.SHEET_GID}`
+    matchedSheet = allSheets.find(s =>
+      normalizeSheetTitle(s.properties?.title).includes(expected)
     );
   }
 
+  if (!matchedSheet) {
+    const foundNames = allSheets
+      .map(s => `"${s.properties?.title}"`)
+      .join(", ");
+
+    throw new Error(
+      `ไม่พบแท็บ "${expectedName}" — แท็บที่พบในไฟล์คือ: ${foundNames}`
+    );
+  }
+
+  // ใช้ชื่อจริงที่ Google ส่งกลับมา
   SHEET = matchedSheet.properties.title;
 
-  console.log("ใช้แท็บ:", SHEET);
-  console.log("gid:", gid);
+  // อัปเดต gid ให้ตรงกับแท็บที่หาเจอด้วย
+  CONFIG.SHEET_GID = String(matchedSheet.properties.sheetId);
+
+  console.log("เลือกแท็บถูกต้องแล้ว");
+  console.log("ชื่อแท็บ:", SHEET);
+  console.log("gid:", CONFIG.SHEET_GID);
 
   return SHEET;
 }
@@ -232,8 +275,6 @@ async function resolveSheetTitle() {
 
 // โหลดข้อมูลจากชีต
 async function fetchMatrix() {
-  // จำกัดไว้ถึงแถว 2000 ก่อน
-  // ถ้าข้อมูลมีมากกว่านี้ค่อยเพิ่มภายหลังได้
   const rangeText = sheetRange("A1:DP2000");
   const range = encodeURIComponent(rangeText);
 
@@ -259,7 +300,6 @@ async function fetchMatrix() {
 
 // โหลดหน้า "อัพเดตลูกค้า"
 async function loadSheet() {
-  // ทุกครั้งให้ตรวจชื่อแท็บจริงจาก gid ก่อน
   await resolveSheetTitle();
 
   const matrix = await fetchMatrix();
