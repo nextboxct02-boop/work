@@ -188,7 +188,7 @@
   }
 
   async function fetchMatrix() {
-    const range = encodeURIComponent(sheetRange(`A1:DP`));
+    const range = encodeURIComponent(sheetRange(`A:DP`));
     const data = await sheetsFetch(`/values/${range}?valueRenderOption=FORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`);
     const values = data.values || [];
     const width = 120;
