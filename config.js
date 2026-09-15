@@ -6,7 +6,5 @@ window.APP_CONFIG = {
   SHEET_NAME: "อัพเดตลูกค้า",
   SHEET_GID: "91690945",
   DATA_START_ROW: 6,
-  // ใส่อีเมลของคุณได้ เช่น ["yourname@gmail.com"]
-  // เป็น UI guard เท่านั้น สิทธิ์จริงยังบังคับโดย Google Sheet
   ALLOWED_EMAILS: [nextboxct02@gmail.com],
 };
