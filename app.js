@@ -357,27 +357,162 @@ async function loadSheet() {
   }
 
   function renderTable() {
-    const list = filteredRows.slice(0, 300);
-    els.emptyState.classList.toggle("hidden", list.length > 0);
-    els.customerRows.innerHTML = list.map(x => {
-      const r=x.row, page=val(r,"CY"), name=val(r,"G") || "(ไม่ระบุชื่อ)", product=val(r,"L"), cat=val(r,"K"), owner=val(r,"R") || "-";
-      const pack=getPackage(x);
-      return `<tr>
-        <td><div class="person"><strong>${esc(name)}</strong><span>${esc(page || val(r,"H") || "-")}</span></div></td>
-        <td><div class="person"><strong>${esc(product || "-")}</strong><span>${esc(cat || "-")}</span></div></td>
-        <td class="price">${formatPrice(val(r,"M"))}</td>
-        <td>${esc(owner)}</td>
-        <td>${pill(val(r,"S"))}</td>
-        <td>${pill(val(r,"W"))}</td>
-        <td>${pill(val(r,"AD"))}</td>
-        <td><div class="person"><strong>${esc(pack.name)}</strong><span>${pack.done}/${pack.total || "?"}</span></div></td>
-        <td><div class="row-actions"><button class="detail-btn" data-row="${x.rowNumber}">ดูรายละเอียด</button></div></td>
-      </tr>`;
-    }).join("");
-    els.customerRows.querySelectorAll(".detail-btn").forEach(btn => btn.onclick = () => {
-      const x = rows.find(r => r.rowNumber === Number(btn.dataset.row)); if (x) openDrawer(x);
+  const list = filteredRows.slice(0, 300);
+
+  els.emptyState.classList.toggle("hidden", list.length > 0);
+
+  els.customerRows.innerHTML = list.map(x => {
+    const r = x.row;
+
+    const page = val(r, "CY");
+    const name = val(r, "G") || "(ไม่ระบุชื่อ)";
+    const phone = val(r, "H") || "-";
+    const product = val(r, "L") || "-";
+    const category = val(r, "K") || "-";
+    const owner = val(r, "R") || "-";
+
+    const productionStatus = val(r, "S");
+    const proofStatus = val(r, "W");
+    const customerStatus = val(r, "AD");
+
+    const pack = getPackage(x);
+
+    const progressPercent = pack.total
+      ? Math.min(100, Math.round((pack.done / pack.total) * 100))
+      : 0;
+
+    return `
+      <tr class="customer-card-row">
+        <td colspan="9">
+
+          <article class="customer-card">
+
+            <div class="customer-card-top">
+              <div class="customer-avatar">
+                ${esc(name.charAt(0) || "?")}
+              </div>
+
+              <div class="customer-main">
+                <h3>${esc(name)}</h3>
+                <div class="customer-page">
+                  ${esc(page || phone)}
+                </div>
+              </div>
+
+              <div class="customer-price">
+                ${formatPrice(val(r, "M"))}
+              </div>
+            </div>
+
+
+            <div class="customer-card-divider"></div>
+
+
+            <div class="customer-job">
+              <div class="card-label">งาน / บริการ</div>
+
+              <div class="card-value job-name">
+                ${esc(product)}
+              </div>
+
+              <div class="card-subvalue">
+                ${esc(category)}
+              </div>
+            </div>
+
+
+            <div class="customer-meta-grid">
+
+              <div class="customer-meta">
+                <span class="card-label">ผู้ทำ</span>
+                <strong>${esc(owner)}</strong>
+              </div>
+
+              <div class="customer-meta">
+                <span class="card-label">เบอร์</span>
+                <strong>${esc(phone)}</strong>
+              </div>
+
+            </div>
+
+
+            <div class="customer-status-section">
+
+              <div class="status-item">
+                <span class="card-label">งานผลิต</span>
+                ${pill(productionStatus)}
+              </div>
+
+              <div class="status-item">
+                <span class="card-label">Proof</span>
+                ${pill(proofStatus)}
+              </div>
+
+              <div class="status-item">
+                <span class="card-label">ลูกค้า</span>
+                ${pill(customerStatus)}
+              </div>
+
+            </div>
+
+
+            <div class="customer-package">
+
+              <div class="package-head">
+                <div>
+                  <div class="card-label">แพ็กเกจ</div>
+                  <strong>${esc(pack.name)}</strong>
+                </div>
+
+                <div class="package-count">
+                  ${pack.done}/${pack.total || "?"}
+                </div>
+              </div>
+
+              <div class="card-progress">
+                <span style="width:${progressPercent}%"></span>
+              </div>
+
+            </div>
+
+
+            <div class="customer-card-footer">
+
+              <span class="row-number">
+                แถว ${x.rowNumber}
+              </span>
+
+              <button
+                class="detail-btn card-detail-btn"
+                data-row="${x.rowNumber}"
+              >
+                ดูรายละเอียด
+              </button>
+
+            </div>
+
+          </article>
+
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+
+  els.customerRows
+    .querySelectorAll(".detail-btn")
+    .forEach(btn => {
+
+      btn.onclick = () => {
+        const x = rows.find(
+          r => r.rowNumber === Number(btn.dataset.row)
+        );
+
+        if (x) openDrawer(x);
+      };
+
     });
-  }
+}
 
   function formatPrice(v) {
     const n=Number(String(v).replace(/,/g,"")); return Number.isFinite(n)&&v!=="" ? `฿${n.toLocaleString("th-TH")}` : (v ? esc(v) : "-");
