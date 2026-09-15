@@ -2,7 +2,7 @@
   "use strict";
 
   const CONFIG = window.APP_CONFIG || {};
-  const SHEET = CONFIG.SHEET_NAME || "อัพเดตลูกค้า";
+  let SHEET = CONFIG.SHEET_NAME || "อัพเดตลูกค้า";
   const START_ROW = Number(CONFIG.DATA_START_ROW || 6);
   const READ_SCOPE = "openid email profile https://www.googleapis.com/auth/spreadsheets.readonly";
   const WRITE_SCOPE = "openid email profile https://www.googleapis.com/auth/spreadsheets";
@@ -175,32 +175,108 @@
   }
 
   async function sheetsFetch(path, options={}) {
-    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(CONFIG.SPREADSHEET_ID)}${path}`, {
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(CONFIG.SPREADSHEET_ID)}${path}`,
+    {
       ...options,
-      headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type":"application/json", ...(options.headers || {}) }
-    });
-    if (!res.ok) {
-      let msg = `Google Sheets API ${res.status}`;
-      try { const j = await res.json(); msg = j.error?.message || msg; } catch {}
-      throw new Error(msg);
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+      }
     }
-    return res.status === 204 ? {} : res.json();
+  );
+
+  if (!res.ok) {
+    let msg = `Google Sheets API ${res.status}`;
+
+    try {
+      const j = await res.json();
+      msg = j.error?.message || msg;
+    } catch {}
+
+    throw new Error(msg);
   }
 
-  async function fetchMatrix() {
-    const range = encodeURIComponent(sheetRange(`A:DP`));
-    const data = await sheetsFetch(`/values/${range}?valueRenderOption=FORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`);
-    const values = data.values || [];
-    const width = 120;
-    return values.map(r => [...r, ...Array(Math.max(0,width-r.length)).fill("")].slice(0,width));
+  return res.status === 204 ? {} : res.json();
+}
+
+
+// หา "ชื่อแท็บจริง" จาก gid
+// เพื่อไม่ต้องพึ่งชื่อ อัพเดตลูกค้า ใน config.js
+async function resolveSheetTitle() {
+  const gid = Number(CONFIG.SHEET_GID);
+
+  const meta = await sheetsFetch(
+    `?fields=sheets(properties(sheetId,title))`
+  );
+
+  const matchedSheet = (meta.sheets || []).find(
+    s => Number(s.properties?.sheetId) === gid
+  );
+
+  if (!matchedSheet) {
+    throw new Error(
+      `ไม่พบแท็บ Google Sheet ที่มี gid=${CONFIG.SHEET_GID}`
+    );
   }
 
-  async function loadSheet() {
-    const matrix = await fetchMatrix();
-    rows = matrix.slice(START_ROW - 1).map((row, i) => ({ row, rowNumber: START_ROW + i, demo:false }))
-      .filter(x => x.row.some(v => String(v ?? "").trim() !== ""));
-    renderAll();
-  }
+  SHEET = matchedSheet.properties.title;
+
+  console.log("ใช้แท็บ:", SHEET);
+  console.log("gid:", gid);
+
+  return SHEET;
+}
+
+
+// โหลดข้อมูลจากชีต
+async function fetchMatrix() {
+  // จำกัดไว้ถึงแถว 2000 ก่อน
+  // ถ้าข้อมูลมีมากกว่านี้ค่อยเพิ่มภายหลังได้
+  const rangeText = sheetRange("A1:DP2000");
+  const range = encodeURIComponent(rangeText);
+
+  console.log("กำลังอ่าน Range:", rangeText);
+
+  const data = await sheetsFetch(
+    `/values/${range}?valueRenderOption=FORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`
+  );
+
+  const values = data.values || [];
+  const width = 120;
+
+  return values.map(row => {
+    const padded = [
+      ...row,
+      ...Array(Math.max(0, width - row.length)).fill("")
+    ];
+
+    return padded.slice(0, width);
+  });
+}
+
+
+// โหลดหน้า "อัพเดตลูกค้า"
+async function loadSheet() {
+  // ทุกครั้งให้ตรวจชื่อแท็บจริงจาก gid ก่อน
+  await resolveSheetTitle();
+
+  const matrix = await fetchMatrix();
+
+  rows = matrix
+    .slice(START_ROW - 1)
+    .map((row, i) => ({
+      row,
+      rowNumber: START_ROW + i,
+      demo: false
+    }))
+    .filter(x =>
+      x.row.some(v => String(v ?? "").trim() !== "")
+    );
+
+  renderAll();
+}
 
   async function refresh() {
     if (authMode === "demo") { renderAll(); toast("รีเฟรชข้อมูลจำลองแล้ว"); return; }
