@@ -262,7 +262,7 @@ async function fetchMatrix() {
   const rangeText = sheetRange("A1:DP2000");
   const range = encodeURIComponent(rangeText);
 
-  console.log("กำลังอ่าน Range:", rangeText);
+  console.log("กำลังอ่าน:", rangeText);
 
   const data = await sheetsFetch(
     `/values/${range}?valueRenderOption=FORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`
@@ -301,7 +301,6 @@ async function loadSheet() {
 
   renderAll();
 }
-
   async function refresh() {
     if (authMode === "demo") { renderAll(); toast("รีเฟรชข้อมูลจำลองแล้ว"); return; }
     try { await loadSheet(); toast("รีเฟรชข้อมูลล่าสุดแล้ว"); }
